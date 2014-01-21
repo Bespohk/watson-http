@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
-from setuptools import setup, Command
+from setuptools import setup, Command, find_packages
 import watson.http
 
 
@@ -103,7 +103,7 @@ setup(
               'uri',
               'memcache'],
 
-    packages=['watson', 'watson.http'],
+    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,
 
     zip_safe=False,
