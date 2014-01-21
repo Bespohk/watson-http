@@ -14,15 +14,7 @@ Work with HTTP Request/Response objects, sessions, and more.
 Build Status
 ------------
 
-+-----------+------------------+---------------------+
-| Branch    | Status           | Coverage            |
-+===========+==================+=====================+
-| Master    | |Build StatusM|  | |Coverage Status|   |
-+-----------+------------------+---------------------+
-| Develop   | |Build StatusD|  |                     |
-+-----------+------------------+---------------------+
-
-|Pypi|
+|Build Status| |Coverage Status| |Version| |Downloads| |Licence|
 
 Installation
 ------------
@@ -46,11 +38,13 @@ Table of Contents
 
 .. include:: toc.rst.inc
 
+.. |Build Status| image:: https://api.travis-ci.org/Bespohk/watson-http.png?branch=master
+   :target: https://travis-ci.org/Bespohk/watson-http
 .. |Coverage Status| image:: https://coveralls.io/repos/bespohk/watson-http/badge.png
    :target: https://coveralls.io/r/bespohk/watson-http
-.. |Build StatusD| image:: https://api.travis-ci.org/bespohk/watson-http.png?branch=develop
-   :target: https://travis-ci.org/bespohk/watson-http
-.. |Build StatusM| image:: https://api.travis-ci.org/bespohk/watson-http.png?branch=master
-   :target: https://travis-ci.org/bespohk/watson-http
-.. |Pypi| image:: https://pypip.in/v/watson-http/badge.png
-   :target: https://crate.io/packages/watson-http/
+.. |Version| image:: https://pypip.in/v/watson-http/badge.png
+   :target: https://pypi.python.org/pypi/watson-http/
+.. |Downloads| image:: https://pypip.in/d/watson-http/badge.png
+   :target: https://pypi.python.org/pypi/watson-http/
+.. |Licence| image:: https://pypip.in/license/watson-http/badge.png
+   :target: https://pypi.python.org/pypi/watson-http/
