@@ -64,7 +64,7 @@ with open(os.path.join(path, 'requirements.txt')) as f:
 setup(
     name='watson-http',
     version=watson.http.__version__,
-    url='http://github.com/bespohk/watson-http',
+    url='http://github.com/watsonpy/watson-http',
     description='Work with HTTP Request/Response objects, sessions, and more.',
     long_description=readme,
 

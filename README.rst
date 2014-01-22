@@ -21,10 +21,10 @@ Dependencies
 
 -  watson-common
 
-.. |Build Status| image:: https://api.travis-ci.org/Bespohk/watson-http.png?branch=master
-   :target: https://travis-ci.org/Bespohk/watson-http
-.. |Coverage Status| image:: https://coveralls.io/repos/bespohk/watson-http/badge.png
-   :target: https://coveralls.io/r/bespohk/watson-http
+.. |Build Status| image:: https://api.travis-ci.org/watsonpy/watson-http.png?branch=master
+   :target: https://travis-ci.org/watsonpy/watson-http
+.. |Coverage Status| image:: https://coveralls.io/repos/watsonpy/watson-http/badge.png
+   :target: https://coveralls.io/r/watsonpy/watson-http
 .. |Version| image:: https://pypip.in/v/watson-http/badge.png
    :target: https://pypi.python.org/pypi/watson-http/
 .. |Downloads| image:: https://pypip.in/d/watson-http/badge.png
