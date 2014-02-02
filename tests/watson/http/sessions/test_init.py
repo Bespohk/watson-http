@@ -17,6 +17,7 @@ class TestSessionMixin(object):
         environ = sample_environ(HTTPS='HTTPS')
         request = create_request_from_environ(environ)
         assert request.is_secure()
+        request.session['arbitrary'] = 'value'
         request.session_to_cookie()
         cookie = request.cookies[sessions.COOKIE_KEY]
         assert cookie['httponly']

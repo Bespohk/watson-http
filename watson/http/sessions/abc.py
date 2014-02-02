@@ -174,6 +174,9 @@ class StorageMixin(dict, metaclass=abc.ABCMeta):
             if self.autosave:
                 self.save()
 
+    def __len__(self):
+        return len(self.data) if self.data else 0
+
     def __iter__(self):
         if not self.data:
             self.load()

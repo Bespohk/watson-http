@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from copy import copy
+from io import BytesIO, BufferedReader
 from wsgiref.util import request_uri
 from watson.common.datastructures import ImmutableMultiDict, MultiDict
 from watson.common.imports import get_qualified_name
@@ -108,11 +109,14 @@ class Request(MessageMixin, SessionMixin):
     _environ = None
 
     @property
+    def encoding(self):
+        return self.headers.get_option('Content-Type', 'charset', 'utf-8')
+
+    @property
     def body(self):
         if not isinstance(self._body, str):
-            data = b''.join(self._body.readlines())
-            encoding = self.headers.get_option('Content-Type', 'charset', 'utf-8')
-            self._body = data.decode(encoding)
+            body = self._environ['wsgi.body.original']
+            self._body = body.decode(self.encoding)
         return self._body
 
     @body.setter

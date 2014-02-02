@@ -61,17 +61,17 @@ class HeaderDict(MultiDict):
         real_field = parse_from_environ_header_field(field)
         if real_field not in self:
             return default
-        options = self[real_field].split('; ')
+        options = self.get(real_field).split('; ')
         found = [opt.split('=')[1]
                  for opt in options if opt.split('=')[0] == option]
         return found[0] if found else default
 
-    def __getitem__(self, field):
-        return dict.__getitem__(self, parse_from_environ_header_field(field))
+    def __getitem__(self, field, default=None):
+        field = parse_from_environ_header_field(field)
+        return super(HeaderDict, self).get(field, default)
 
     def get(self, field, default=None):
-        real_field = parse_from_environ_header_field(field)
-        return self[real_field] if real_field in self else default
+        return self.__getitem__(field, default)
 
     def __delitem__(self, field):
         if field in self:

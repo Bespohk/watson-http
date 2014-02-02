@@ -35,8 +35,12 @@ class SessionMixin(object):
         return self._session
 
     def session_to_cookie(self):
+        """Only write the session to the cookie if data exists in the session.
+        """
         session_cookie = self.cookies[COOKIE_KEY]
-        if not session_cookie or (session_cookie and self.session.id != session_cookie.value):
+        if ((not session_cookie
+             or (session_cookie and self.session.id != session_cookie.value))
+                and len(self.session) > 0):
             if self.is_secure():
                 self.session.cookie_params['secure'] = True
             self.cookies.add(
