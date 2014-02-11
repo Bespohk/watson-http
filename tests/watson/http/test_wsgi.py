@@ -1,18 +1,10 @@
 # -*- coding: utf-8 -*-
 from io import BytesIO, BufferedReader
 from watson.http.wsgi import get_form_vars, _process_field_storage
-from tests.watson.http.support import sample_environ, SampleField
+from tests.watson.http.support import sample_environ
 
 
 class TestWsgiModule(object):
-
-    def test_get_form_vars(self):
-        environ = sample_environ(
-            QUERY_STRING='test=test',
-            REQUEST_METHOD='PUT')
-        get, post, files, body = get_form_vars(environ)
-        assert get['test'] == 'test'
-        assert environ['CONTENT_TYPE'] == 'application/x-www-form-urlencoded'
 
     def test_get_form_vars_with_file(self):
         environ = sample_environ(
@@ -43,13 +35,11 @@ Content-Disposition: form-data; name="submit"
         encoding = 'utf-8'
         fp = BufferedReader(BytesIO(postdata.encode(encoding)))
         environ['wsgi.input'] = fp
-        get, post, files, body = get_form_vars(environ)
+        post, files = get_form_vars(environ, dict)
         file = files.get('file')
         assert file.filename == 'test.txt'
         assert post.get('id') == '1234'
 
     def test_process_field_storage(self):
-        get, post, files = _process_field_storage('test')
-        assert len(get) == 0
+        post, files = _process_field_storage('test', {}, {})
         assert len(post) == 0
-        assert len(files) == 0

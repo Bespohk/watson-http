@@ -6,45 +6,29 @@ from watson.http.sessions.memory import Storage as Memory
 from watson.http.sessions.memcache import Storage as Memcache
 
 
-__all__ = ['StorageMixin', 'File', 'Memory', 'Memcache', 'SessionMixin']
+__all__ = ['StorageMixin', 'File', 'Memory', 'Memcache', 'session_to_cookie']
 
 
-class SessionMixin(object):
+def session_to_cookie(request, response):
+    """Migrate the session id to the cookie.
 
-    """Provides a mixin for Request objects to utilize sessions.
+    Args:
+        request (watson.http.messages.Request): The request containing the session
+        response (watson.http.messages.Response): The response to be outputed
     """
-    _session_class = 'watson.http.sessions.File'
-    _session_options = None
-    _session = None
-
-    def define_session(self, _class, options=None):
-        self._session_class = str(_class)
-        self._session_options = options or {}
-
-    @property
-    def session(self):
-        if not self._session:
-            if not self._session_options:
-                self._session_options = {}
-            storage = load_definition_from_string(self._session_class)
-            session_cookie = self.cookies[COOKIE_KEY]
-            self._session = storage(
-                id=session_cookie.value,
-                **self._session_options) if session_cookie else storage(
-                **self._session_options)
-        return self._session
-
-    def session_to_cookie(self):
-        """Only write the session to the cookie if data exists in the session.
-        """
-        session_cookie = self.cookies[COOKIE_KEY]
-        if ((not session_cookie
-             or (session_cookie and self.session.id != session_cookie.value))
-                and len(self.session) > 0):
-            if self.is_secure():
-                self.session.cookie_params['secure'] = True
-            self.cookies.add(
-                COOKIE_KEY,
-                value=self.session.id,
-                **self.session.cookie_params)
-            self.cookies[COOKIE_KEY] = self.session.id
+    if not request.session:
+        return
+    if not request.session.modified:
+        return
+    session_cookie = request.cookies[COOKIE_KEY]
+    if ((not session_cookie
+         or (session_cookie and request.session.id != session_cookie.value))
+            and len(request.session) > 0):
+        if request.is_secure():
+            request.session.cookie_params['secure'] = True
+        request.cookies.add(
+            COOKIE_KEY,
+            value=request.session.id,
+            **request.session.cookie_params)
+        request.cookies[COOKIE_KEY] = request.session.id
+        response.cookies.merge(request.cookies)

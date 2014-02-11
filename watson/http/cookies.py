@@ -2,6 +2,14 @@
 from http.cookies import SimpleCookie, Morsel
 
 
+def cookies_from_environ(environ):
+    """Converts a HTTP_COOKIE from an environ dict into a CookieDict.
+    """
+    cookies_string = environ.get('HTTP_COOKIE', ())
+    cookies = CookieDict(cookies_string)
+    return cookies
+
+
 class CookieDict(SimpleCookie):
 
     """A dictionary containing cookies.

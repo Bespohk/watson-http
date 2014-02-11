@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from watson.http import sessions
+from watson.http import sessions, messages
+from tests.watson.http import support
 
 
 class TestMemoryStorage(object):
@@ -13,6 +14,13 @@ class TestMemoryStorage(object):
         assert repr(session) == '<watson.http.sessions.memory.Storage id:123>'
         assert session['test'] == 'blah'
         assert session.get('test') == 'blah'
+
+    def test_multiple_requests(self):
+        request1 = messages.Request.from_environ(support.sample_environ(), 'watson.http.sessions.Memory')
+        request1.session['testing'] = 'test'
+        request2 = messages.Request.from_environ(support.sample_environ(), 'watson.http.sessions.Memory')
+        request2.session['testing'] = 'test'
+        assert request1.session.id != request2.session.id
 
     def test_cookie_params(self):
         session = sessions.Memory()

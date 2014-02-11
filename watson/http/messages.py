@@ -1,24 +1,22 @@
 # -*- coding: utf-8 -*-
-from copy import copy
-from io import BytesIO, BufferedReader
+from urllib.parse import parse_qsl
 from wsgiref.util import request_uri
-from watson.common.datastructures import ImmutableMultiDict, MultiDict
-from watson.common.imports import get_qualified_name
+from watson.common.datastructures import ImmutableMultiDict
+from watson.common.decorators import cached_property
+from watson.common.imports import get_qualified_name, load_definition_from_string
 from watson.http import STATUS_CODES, REQUEST_METHODS
-from watson.http.cookies import CookieDict
-from watson.http.headers import HeaderDict, split_headers_server_vars
+from watson.http.cookies import CookieDict, cookies_from_environ
+from watson.http.headers import HeaderCollection, ServerCollection, fix_http_headers
 from watson.http.uri import Url
-from watson.http.wsgi import get_form_vars
-from watson.http.sessions import SessionMixin
+from watson.http.wsgi import copy_wsgi_input, get_form_vars, WSGI_BODY
+from watson.http.sessions import COOKIE_KEY
 
 
 class MessageMixin(object):
 
     """Base mixin for all Http Message objects.
     """
-    _headers = None
     _version = None
-    body = None
 
     @property
     def version(self):
@@ -28,52 +26,8 @@ class MessageMixin(object):
     def version(self, version):
         self._version = version
 
-    @property
-    def headers(self):
-        if not self._headers:
-            self._headers = HeaderDict()
-        return self._headers
 
-    @headers.setter
-    def headers(self, headers):
-        if not isinstance(headers, HeaderDict):
-            headers = HeaderDict(headers)
-        self._headers = headers
-
-    def __init__(self, headers=None, body=None):
-        if headers:
-            self.headers = headers
-        self.body = body or ''
-
-
-def create_request_from_environ(
-        environ, session_class=None, session_options=None):
-    """Create a new Request object.
-
-    Create a new Request object based on a set of environ variables. To create
-    a mutable version of the request you should copy() the Request object.
-
-    If a POST variable named HTTP_REQUEST_METHOD is found, the Http Request
-    method will be set to that method.
-    """
-    headers, server, cookies = split_headers_server_vars(environ)
-    get, post, files, body = get_form_vars(environ)
-    if post.get('HTTP_REQUEST_METHOD', '').upper() in REQUEST_METHODS:
-        method = post.get('HTTP_REQUEST_METHOD')
-    else:
-        method = server['REQUEST_METHOD']
-    request = Request(
-        method, ImmutableMultiDict(get), ImmutableMultiDict(post),
-        ImmutableMultiDict(files), ImmutableMultiDict(headers),
-        ImmutableMultiDict(server), cookies, body)
-    request._environ = environ.copy()
-    if session_class:
-        request.define_session(session_class, session_options or {})
-    return request
-
-
-class Request(MessageMixin, SessionMixin):
-
+class Request(MessageMixin):
     """
     Provides a simple and usable interface for dealing with Http Requests.
     Requests are designed to be immutable and not altered after they are
@@ -90,56 +44,102 @@ class Request(MessageMixin, SessionMixin):
 
     .. code-block:: python
 
-        request = create_request_from_environ(environ)
+        request = Request.from_environ(environ)
         print(request.method)
         print(request.post('my_post_var'))
 
-        request = Request('get', {'get_var': 'somevalue'})
+        request = Request.from_dicts(server={'HTTP_METHOD': 'GET'}, get={'get_var': 'somevalue'})
         print(request.method) # get
         print(request.get('get_var')) # somevalue
     """
-    _method = None
-    _url = None
-    _get = None
-    _post = None
-    _files = None
-    _headers = None
-    _server = None
-    _cookies = None
+
     _environ = None
+    _session = None
+
+    def __init__(self, environ):
+        fix_http_headers(environ)
+        self._environ = environ
+
+    @property
+    def environ(self):
+        return self._environ
 
     @property
     def encoding(self):
         return self.headers.get_option('Content-Type', 'charset', 'utf-8')
 
     @property
+    def raw_body(self):
+        return self.environ[WSGI_BODY]
+
+    @property
     def body(self):
-        if not isinstance(self._body, str):
-            body = self._environ['wsgi.body.original']
-            self._body = body.decode(self.encoding)
-        return self._body
+        copy_wsgi_input(self.environ)
+        return self.raw_body.decode(self.encoding)
 
     @body.setter
     def body(self, body):
-        self._body = body
+        """Set the body of the Request.
 
-    @property
+        Args:
+            body (string): The body of the request.
+        """
+        self.environ[WSGI_BODY] = body.encode(self.encoding)
+
+    @cached_property
     def method(self):
         """The method associated with the request.
+
+        If the existing method is a POST, also check for HTTP_REQUEST_METHOD
+        in the post vars to enable custom (but valid) request methods.
 
         Returns:
             A string representation of the Http Request method
         """
-        return self._method.upper()
+        method = self.environ.get('REQUEST_METHOD', 'GET').upper()
+        if method == 'POST':
+            post_method = self.post.get('HTTP_REQUEST_METHOD', method).upper()
+            if post_method in REQUEST_METHODS:
+                method = post_method
+        return method
 
-    @property
+    @cached_property
+    def url(self):
+        """Generates a watson.http.uri.Url object based on Request.server
+        variables.
+
+        Example:
+
+        .. code-block:: python
+
+            request = ...
+            print(request.url.path) # /
+
+        Returns:
+            A watson.http.uri.Url object
+        """
+        return Url(request_uri(self.environ))
+
+    @cached_property
     def get(self):
         """A dict of all GET variables associated with the request.
 
         Returns:
             A dict of GET variables
         """
-        return self._get
+        qs = self.environ.get('QUERY_STRING', '')
+        if qs:
+            return ImmutableMultiDict(parse_qsl(qs, keep_blank_values=True))
+        return ImmutableMultiDict()
+
+    @cached_property
+    def _get_post_files_from_environ(self):
+        if self.environ.get('REQUEST_METHOD') not in ('POST', 'PUT', 'PATCH'):
+            post = files = ImmutableMultiDict()
+        else:
+            copy_wsgi_input(self.environ)
+            post, files = get_form_vars(self.environ, ImmutableMultiDict)
+        return post, files
 
     @property
     def post(self):
@@ -148,9 +148,10 @@ class Request(MessageMixin, SessionMixin):
         Returns:
             A dict of POST variables
         """
-        return self._post
+        post, files = self._get_post_files_from_environ
+        return post
 
-    @property
+    @cached_property
     def files(self):
         """A dict of all files that have been uploaded as part of a
         enctype="multipart/form-data" request.
@@ -165,19 +166,18 @@ class Request(MessageMixin, SessionMixin):
         Returns:
             A dict of FieldStorage objects
         """
-        return self._files
+        post, files = self._get_post_files_from_environ
+        return files
 
-    @property
+    @cached_property
+    def headers(self):
+        return HeaderCollection.from_environ(self.environ)
+
+    @cached_property
     def server(self):
-        """A dict of all environ variables associated with the server where the
-        request originated.
+        return ServerCollection.from_environ(self.environ)
 
-        Returns:
-            A dict of environ variables
-        """
-        return self._server
-
-    @property
+    @cached_property
     def cookies(self):
         """A dict of all cookies from the request.
 
@@ -191,75 +191,62 @@ class Request(MessageMixin, SessionMixin):
         Returns:
             A watson.http.cookies.CookieDict object
         """
-        return self._cookies
+        return cookies_from_environ(self.environ)
 
     @property
-    def url(self):
-        """Generates a watson.http.uri.Url object based on Request.server variables.
+    def session(self):
+        session_class = self.environ.get('watson.session.class', None)
+        if session_class and not self._session:
+            storage = load_definition_from_string(session_class)
+            options = self.environ['watson.session.options']
+            http_cookie = self.environ.get('HTTP_COOKIE', None)
+            if (http_cookie and '{0}='.format(COOKIE_KEY) in http_cookie):
+                session_cookie = self.cookies[COOKIE_KEY]
+                if session_cookie:
+                    options['id'] = session_cookie.value
+            self._session = storage(**options)
+        return self._session
+
+    # Initializers
+
+    @classmethod
+    def from_dicts(cls, get, post, server, headers, body):
+        """@todo Implement.
+        """
+        environ = {}
+        request = cls(environ)
+        return request
+
+    @classmethod
+    def from_environ(cls, environ,
+                     session_class=None,
+                     session_options=None):
+        environ['watson.session.class'] = session_class
+        environ['watson.session.options'] = session_options or {}
+        request = cls(environ)
+        return request
+
+    # Convenience methods
+
+    def is_method(self, *methods):
+        """
+        Determine whether or not a request was made via a specific method.
 
         Example:
 
         .. code-block:: python
 
-            request = ...
-            print(request.url.path) # /
-
-        Returns:
-            A watson.http.uri.Url object
-        """
-        if not self._url:
-            self._url = Url(request_uri(self._environ))
-        return self._url
-
-    def __init__(self, method, get=None, post=None, files=None, headers=None,
-                 server=None, cookies=None, body=''):
-        """Creates a new instance of the Request object.
+            request = ... # request made via GET
+            request.is_method('get') # True
 
         Args:
-            method: The Http request method
-            get: A watson.common.datastructures.MultiDict containing GET variables
-            post: A watson.common.datastructures.MultiDict containing POST variables
-            files: A watson.common.datastructures.MultiDict containing FieldStorage objects
-            headers: A watson.http.headers.HeaderDict containing valid Http headers
-            server: A watson.common.datastructures.MultiDict containing server variables
-            cookies: A watson.http.cookies.CookieDict containing watson.http.cookies.TastyMorsel objects
-            body: The content of the request
+            method (string|list|tuple): the method or list of methods to check
+
+        Returns:
+            Boolean
         """
-        super(Request, self).__init__(body=body, headers=headers)
-        self._method = str(method).upper()
-        if self.method not in REQUEST_METHODS:
-            raise TypeError('Not a valid Http Request method.')
-        self._get = get or MultiDict()
-        self._post = post or MultiDict()
-        self._files = files or MultiDict()
-        self._server = server or MultiDict()
-        self._cookies = cookies or CookieDict()
-        self.headers = headers or HeaderDict()
-
-    def __str__(self):
-        return '{0} {1} HTTP/{2}\r\n{3}\r\n\r\n{4}'.format(self.method,
-                                                           self.url,
-                                                           self.version,
-                                                           self.headers,
-                                                           self.body)
-
-    def __repr__(self):
-        return '<{0} method:{1} url:{2}>'.format(get_qualified_name(self),
-                                                 self.method,
-                                                 self.url)
-
-    # TODO: Add copy method to create non-immutable dicts
-    def __copy__(self):
-        return Request(self.method,
-                       get=copy(self.get),
-                       post=copy(self.post),
-                       files=copy(self.files),
-                       headers=HeaderDict(copy(self.headers)),
-                       server=copy(self.server),
-                       cookies=CookieDict(copy(self.cookies)),
-                       body=copy(self.body))
-
-    # Convenience methods
+        methods = (methods,) if isinstance(methods, str) else methods
+        return self.method in [m.upper() for m in methods]
 
     def is_xml_http_request(self):
         """
@@ -283,29 +270,6 @@ class Request(MessageMixin, SessionMixin):
             return self.headers['Https'].lower() == 'https'
         return self.url.scheme.lower() == 'https'
 
-    def is_method(self, method):
-        """
-        Determine whether or not a request was made via a specific method.
-
-        Example:
-
-        .. code-block:: python
-
-            request = ... # request made via GET
-            request.is_method('get') # True
-
-        Args:
-            method (string|list|tuple): the method or list of methods to check
-
-        Returns:
-            Boolean
-        """
-        if isinstance(method, (tuple, list)):
-            method = [m.upper() for m in method]
-        else:
-            method = method.upper()
-        return self.method in method
-
     def host(self):
         """Determine the real host of a request.
 
@@ -319,6 +283,18 @@ class Request(MessageMixin, SessionMixin):
             not in self.headers
             else self.headers.get('X-Forwarded-For')
         )
+
+    def __str__(self):
+        return '{0} {1} HTTP/{2}\r\n{3}\r\n\r\n{4}'.format(self.method,
+                                                           self.url,
+                                                           self.version,
+                                                           self.headers,
+                                                           self.body)
+
+    def __repr__(self):
+        return '<{0} method:{1} url:{2}>'.format(get_qualified_name(self),
+                                                 self.method,
+                                                 self.url)
 
 
 class Response(MessageMixin):
@@ -341,7 +317,54 @@ class Response(MessageMixin):
     """
     _status_code = None
     _cookies = None
+    _body = None
     _prepared = False
+
+    def __init__(self, status_code=None, headers=None, body=None, version=None):
+        """
+        Args:
+            status_code (int): The status code for the Response
+            headers (watson.http.headers.HeaderCollection): Valid response headers.
+            body (string): The content for the response
+            version (string): The Http version for the response
+        """
+        self.status_code = status_code
+        self._headers = headers or HeaderCollection()
+        if version:
+            self.version = version
+        if body:
+            self.body = body
+
+    @property
+    def headers(self):
+        return self._headers
+
+    @headers.setter
+    def headers(self, headers):
+        if not isinstance(headers, HeaderCollection):
+            headers = HeaderCollection(headers)
+        self._headers = headers
+
+    @property
+    def raw_body(self):
+        if self._body:
+            return self._body
+        return b''
+
+    @property
+    def body(self):
+        """Returns the decoded body based on the response encoding type.
+        """
+        return self.raw_body.decode(self.encoding)
+
+    @body.setter
+    def body(self, body):
+        """Set the body of the Request.
+
+        Args:
+            body (string): The body of the request.
+        """
+        self._body = body.encode(self.encoding)
 
     @property
     def status_code(self):
@@ -376,9 +399,10 @@ class Response(MessageMixin):
     @cookies.setter
     def cookies(self, cookies):
         """Sets the cookies associated with the Response.
+
+        Args:
+            cookies (CookieDict): The cookies to add to the response.
         """
-        if not isinstance(cookies, CookieDict):
-            cookies = CookieDict(cookies)
         self._cookies = cookies
 
     @property
@@ -387,20 +411,6 @@ class Response(MessageMixin):
         UTF-8.
         """
         return self.headers.get_option('Content-Type', 'charset', 'utf-8')
-
-    def __init__(self, status_code=None,
-                 headers=None, body=None, version='1.1'):
-        """
-        Args:
-            status_code (int): The status code for the Response
-            headers (watson.http.headers.HeaderDict): Valid response headers.
-            body (string): The content for the response
-            version (string): The Http version for the response
-        """
-        super(Response, self).__init__(headers=headers, body=body)
-        self.status_code = status_code
-        self._headers = headers or HeaderDict()
-        self.version = str(version)
 
     def start(self):
         """Return the status_line and headers of the response for use in a WSGI
@@ -426,9 +436,9 @@ class Response(MessageMixin):
 
     def _prepare(self):
         if not self._prepared:
-            self.headers.add('Content-Length', len(self.body), replace=True)
-            for cookie, morsel in self.cookies.items():
-                self.headers.add('Set-Cookie', str(morsel))
+            if self._cookies:
+                for cookie, morsel in self.cookies.items():
+                    self.headers.add('Set-Cookie', str(morsel))
             self._prepared = True
 
     def __call__(self, start_response):
@@ -439,4 +449,4 @@ class Response(MessageMixin):
                                        callable.
         """
         start_response(*self.start())
-        return [self.body.encode(self.encoding)]
+        return [self.raw_body]

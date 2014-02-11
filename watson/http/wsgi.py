@@ -36,29 +36,39 @@ def read_binary(self):
 
 cgi.FieldStorage.read_binary = read_binary
 
+WSGI_BODY = 'wsgi.body.original'
 
-def get_form_vars(environ):
+
+def copy_wsgi_input(environ):
+    """Copies a wsgi.input key so that it is seekable.
+    """
+    if WSGI_BODY not in environ:
+        content_length = environ.get('CONTENT_LENGTH', '')
+        length = int(content_length) if content_length else 0
+        body = environ['wsgi.input'].read(length)
+        environ[WSGI_BODY] = body
+        environ['wsgi.input'] = BufferedReader(BytesIO(body))
+
+
+def get_form_vars(environ, dict_type):
     """Convert environ vars into GET/POST/FILES objects.
 
     Process all get and post vars from a <form> and return MultiDict of
     each.
     """
-    content_length = environ.get('CONTENT_LENGTH', '')
-    length = int(content_length) if content_length else 0
-    body = environ['wsgi.input'].read(length)
-    environ['wsgi.body.original'] = body
-    environ['wsgi.input'] = BufferedReader(BytesIO(body))
-
     if environ['REQUEST_METHOD'] == 'PUT' and not environ.get('CONTENT_TYPE'):
         environ['CONTENT_TYPE'] = 'application/x-www-form-urlencoded'
     field_storage = cgi.FieldStorage(fp=environ['wsgi.input'], environ=environ,
                                      keep_blank_values=True)
-    get = MultiDict(
-        ((name, value if value else '')
-            for name, value
-            in parse_qsl(environ.get('QUERY_STRING'), keep_blank_values=True)))
-    get, post, files = _process_field_storage(field_storage, get=get)
-    return get, post, files, body
+    post_dict, files_dict = dict_type(), dict_type()
+    with ignored(Exception):
+        post_dict._mutable = True
+        files_dict._mutable = True
+    post, files = _process_field_storage(field_storage, post_dict, files_dict)
+    with ignored(Exception):
+        post.make_immutable()
+        files.make_immutable()
+    return post, files
 
 
 File = collections.namedtuple(
@@ -66,18 +76,12 @@ File = collections.namedtuple(
     'data filename name type type_options disposition disposition_options headers')
 
 
-def _process_field_storage(fields, get=None, post=None, files=None):
-    if not get:
-        get = MultiDict()
-    if not post:
-        post = MultiDict()
-    if not files:
-        files = MultiDict()
+def _process_field_storage(fs, post, files):
     with ignored(Exception):
-        for name in fields:
-            field = fields[name] if isinstance(name, str) else name
+        for name in fs:
+            field = fs[name] if isinstance(name, str) else name
             if isinstance(field, list):
-                _process_field_storage(field, get, post, files)
+                _process_field_storage(field, post, files)
             elif field.filename:
                 # An uploaded file, create a new File tuple to resolve the
                 # not indexable issue.
@@ -90,8 +94,6 @@ def _process_field_storage(fields, get=None, post=None, files=None):
                     field.disposition,
                     field.disposition_options,
                     field.headers)
-            elif field.disposition or field.name not in get:
-                post[field.name] = field.value
             else:
-                pass  # pragma: no cover
-    return get, post, files
+                post[field.name] = field.value
+    return post, files

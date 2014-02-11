@@ -1,19 +1,78 @@
 # -*- coding: utf-8 -*-
 from watson.common.datastructures import MultiDict
-from watson.http.cookies import CookieDict
+from watson.common.imports import get_qualified_name
+
+MISSED_HEADERS = ('CONTENT_TYPE', 'CONTENT_LENGTH', 'HTTPS')
 
 
-class HeaderDict(MultiDict):
+class ServerCollection(object):
+    """Retrieves server related variables from an environ.
 
-    """A dictionary of headers and their values.
+    Example:
 
-    Contains a collection of key/value pairs that define a set of headers
-    for either a http request or response (e.g. HTTP_ACCEPT)
+    .. code-block:: python
+
+        server = ServerCollection(environ)
+        print(server['SCRIPT_NAME'])
     """
+    __slots__ = ('environ')
 
-    def add(self, field, value, replace=False, **options):
+    def __init__(self, environ=None):
+        self.environ = environ or {}
+
+    @classmethod
+    def from_environ(cls, environ):
+        server = cls(environ)
+        return server
+
+    def items(self):
+        """Returns tuple pairs of environ vars and their values.
         """
-        Adds a header to the collection.
+        for field, value in self.environ.items():
+            if not field.startswith('HTTP_'):
+                yield (field, value)
+
+    def __getitem__(self, key, default=None):
+        key = key.replace('HTTP_', '')
+        return self.environ.get(key, None)
+
+    def __iter__(self):
+        for server in self.items():
+            yield server
+
+    def __len__(self):
+        return len([server for server in self])
+
+
+class HeaderCollection(object):
+    """Retrieves header related variables from an environ.
+
+    Allows the use of non-capitalized names.
+
+    Example:
+
+    .. code-block:: python
+
+        headers = HeaderCollection.from_environ(environ)
+        print(headers.get('Content-Type'))
+    """
+    __slots__ = ('environ', 'mutable')
+
+    def __init__(self, environ=None):
+        self.mutable = True
+        self.environ = environ or MultiDict()
+
+    @classmethod
+    def from_environ(cls, environ):
+        """Instantiate the collection from an existing environ.
+        """
+        fix_http_headers(environ)
+        headers = cls(environ)
+        headers.mutable = False
+        return headers
+
+    def get(self, field, option=None, default=None):
+        """Retrieve an individual header or it's option.
 
         Example:
 
@@ -22,32 +81,7 @@ class HeaderDict(MultiDict):
             # Content-Type: text/html; charset=utf-8
             headers = HeaderCollection()
             headers.add('Content-Type', 'text/html', charset='utf-8')
-
-        Args:
-            field: the field name of the header
-            value: the value for the header
-            options: any other keyword args to add to the value
-        """
-        vals = [str(value)]
-        if options:
-            vals.extend(['{0}={1}'.format(key, val) for
-                        key, val in options.items()])
-        self.set(
-            parse_from_environ_header_field(field),
-            '; '.join(vals),
-            replace)
-
-    def get_option(self, field, option, default=None):
-        """Retrieve an individual option from a header.
-
-        Example:
-
-        .. code-block:: python
-
-            # Content-Type: text/html; charset=utf-8
-            headers = HeaderCollection()
-            headers.add('Content-Type', 'text/html', charset='utf-8')
-            option = headers.get_option('Content-Type', 'charset') # utf-8
+            option = headers.get('Content-Type', 'charset') # utf-8
 
 
         Args:
@@ -58,24 +92,102 @@ class HeaderDict(MultiDict):
         Returns:
             The default value or the value from the option
         """
-        real_field = parse_from_environ_header_field(field)
-        if real_field not in self:
-            return default
-        options = self.get(real_field).split('; ')
-        found = [opt.split('=')[1]
-                 for opt in options if opt.split('=')[0] == option]
-        return found[0] if found else default
-
-    def __getitem__(self, field, default=None):
-        field = parse_from_environ_header_field(field)
-        return super(HeaderDict, self).get(field, default)
-
-    def get(self, field, default=None):
+        if option:
+            value = self.__getitem__(field, default)
+            if not value:
+                return value
+            options = value.split('; ')
+            found = [opt.split('=')[1]
+                     for opt in options if opt.split('=')[0] == option]
+            return found[0] if found else default
         return self.__getitem__(field, default)
 
+    # Deprecated in favor of .get()
+    get_option = get
+
+    def __getitem__(self, field, default=None):
+        field = convert_to_http_field(field)
+        return self.environ.get(field, default)
+
+    def set(self, field, value, **options):
+        """Add a header to the collection.
+
+        Any existing headers with the same name will be removed.
+
+        Args:
+            field (string): The field name
+            value (mixed): The value of the field
+            options (kwargs): Any additional options for the header
+
+        Example:
+
+        .. code-block:: python
+
+            headers = ...
+            headers.add('Content-Type', 'text/html', charset='utf-8')
+        """
+        self.__setitem__(field, value, replace=True, **options)
+
+    def add(self, field, value, replace=False, **options):
+        """Add a header to the collection.
+
+        Args:
+            field (string): The field name
+            value (mixed): The value of the field
+            replace (boolean): Whether or not to replace an existing field
+            options (kwargs): Any additional options for the header
+
+        Example:
+
+        .. code-block:: python
+
+            headers = ...
+            headers.add('Content-Type', 'text/html', charset='utf-8')
+        """
+        self.__setitem__(field, value, replace, **options)
+
+    def items(self):
+        """Returns tuple pairs of environ vars and their values.
+        """
+        for field, value in self.environ.items():
+            if field.startswith('HTTP_'):
+                field = convert_to_wsgi(field[5:])
+                yield (field, value)
+
+    # Internals
+
+    def __setitem__(self, field, value, replace=False, **options):
+        if self.mutable:
+            field = convert_to_http_field(field)
+            value = [str(value)]
+            if options:
+                value.extend(['{0}={1}'.format(key, val) for
+                              key, val in options.items()])
+            value = '; '.join(value)
+            if isinstance(self.environ, MultiDict):
+                self.environ.set(field, value, replace)
+            else:
+                self.environ[field] = value
+        else:
+            raise TypeError('{0} is not mutable.'.format(get_qualified_name(self)))
+
     def __delitem__(self, field):
-        if field in self:
-            super(HeaderDict, self).__delitem__(field)
+        if self.mutable:
+            field = convert_to_http_field(field)
+            del self.environ[field]
+        else:
+            raise TypeError('{0} is not mutable.'.format(get_qualified_name(self)))
+
+    def __contains__(self, field):
+        field = convert_to_http_field(field)
+        return field in self.environ
+
+    def __iter__(self):
+        for header in self.items():
+            yield header
+
+    def __len__(self):
+        return len([header for header in self])
 
     def __call__(self):
         """Output in a format suitable for a wsgi callable.
@@ -87,7 +199,7 @@ class HeaderDict(MultiDict):
             A list of tuple pairs
         """
         tuple_pairs = []
-        for field, value in sorted(self.items()):
+        for field, value in self:
             if (isinstance(value, list)):
                 for multi_val in value:
                     tuple_pairs.append((field, multi_val))
@@ -102,47 +214,26 @@ class HeaderDict(MultiDict):
         )
 
 
-def is_header(field):
-    """Determine if a field is an acceptable http header.
+def convert_to_wsgi(field):
+    """Convert a field name from UPPER_CASE to Title-Case.
     """
-    return (
-        field[:5] == 'HTTP_' or field in (
-            'CONTENT_TYPE',
-            'CONTENT_LENGTH',
-            'HTTPS')
-    )
+    return field.lower().replace('_', ' ').title().replace(' ', '-')
 
 
-def http_header(field):
-    """Return the correct header field name.
+def convert_to_http_field(field):
+    """Convert a field from Title-Case to HTTP_UPPER_CASE.
     """
-    return field if field[:5] != 'HTTP_' else field[5:]
+    field = field.upper().replace('-', '_')
+    if not field.startswith('HTTP_'):
+        field = 'HTTP_' + field
+    return field
 
 
-def parse_to_environ_header_field(field):
-    """Converts a http header field into an uppercase form.
+def fix_http_headers(environ, remove=False):
+    """Add HTTP_ to the relevant headers that its not included with.
     """
-    return field.replace('-', '_').upper()
-
-
-def parse_from_environ_header_field(field):
-    """Converts a http header field into a lowercase form.
-    """
-    return http_header(field).replace('_', ' ').title().replace(' ', '-')
-
-
-def split_headers_server_vars(environ):
-    """Splits the environ into headers and server pairs.
-    """
-    headers = HeaderDict()
-    server = MultiDict()
-    cookies = CookieDict()
-    for key in environ:
-        if is_header(key):
-            headers.add(http_header(key), environ[key])
-            if key == 'HTTP_COOKIE':
-                cookies = CookieDict(environ[key])
-                cookies.modified = False
-        else:
-            server[key] = environ[key]
-    return headers, server, cookies
+    for header in MISSED_HEADERS:
+        if header in environ:
+            environ['HTTP_'+header] = environ[header]
+            if remove:
+                del environ[header]

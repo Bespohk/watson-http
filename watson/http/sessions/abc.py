@@ -35,6 +35,7 @@ class StorageMixin(dict, metaclass=abc.ABCMeta):
         session['key'] = 'some value'
         session['key'] # 'some value'
     """
+    _modified = None
     timeout = None
     key = None
     autosave = None
@@ -46,7 +47,13 @@ class StorageMixin(dict, metaclass=abc.ABCMeta):
     def id(self):
         """The id of the session.
         """
+        if not self._id:
+            self.regenerate_id()
         return self._id
+
+    @property
+    def modified(self):
+        return self._modified
 
     @property
     def data(self):
@@ -83,13 +90,12 @@ class StorageMixin(dict, metaclass=abc.ABCMeta):
             key: the key used to reference the session id in a cookie
             autosave: save the contents on __setitem__
         """
+        self._modified = False
         self._id = id
         self.timeout = timeout
         self.key = COOKIE_KEY
         self.timeout = timeout or 60
         self.autosave = autosave
-        if not id:
-            self.regenerate_id()
 
     def generate_id(self):
         """
@@ -153,6 +159,7 @@ class StorageMixin(dict, metaclass=abc.ABCMeta):
         if not self.data:
             self._data = {}
         self._data[key] = value
+        self._modified = True
         if self.autosave:
             self.save()
 
