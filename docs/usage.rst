@@ -2,7 +2,7 @@ Usage
 =====
 
 .. tip::
-    Watson-Http also works particularly well Watson-Form
+    watson-http also works particularly well watson-form
 
 Creating a Request
 ------------------
@@ -24,7 +24,7 @@ From the environ
         print(request.method)
 
 .. tip::
-    Watson-Http also enables you to deal with other HTTP verbs that may not be accessible by a regular browser. Simply posting HTTP_REQUEST_METHOD and setting it to a valid HTTP verb will convert that request to the specific verb.
+    watson-http also enables you to deal with other HTTP verbs that may not be accessible by a regular browser. Simply posting HTTP_REQUEST_METHOD and setting it to a valid HTTP verb will convert that request to the specific verb.
 
 From watson.http.messages.Request
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -65,7 +65,7 @@ While you can simply return a list from a WSGI application, you still need to al
         start_response('200 OK', [('Content-Type', 'text/html')])
         return [b'Hello World']
 
-With Watson-Http this code turns into...
+With watson-http this code turns into...
 
 .. code-block:: python
 
