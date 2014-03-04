@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 from urllib.parse import parse_qsl
 from wsgiref.util import request_uri
 from watson.common.datastructures import ImmutableMultiDict
@@ -85,6 +86,12 @@ class Request(MessageMixin):
             body (string): The body of the request.
         """
         self.environ[WSGI_BODY] = body.encode(self.encoding)
+
+    @property
+    def json_body(self):
+        """Returns the body encoded as JSON.
+        """
+        return json.loads(self.body)
 
     @cached_property
     def method(self):
