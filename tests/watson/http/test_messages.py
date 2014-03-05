@@ -2,10 +2,16 @@
 from io import BytesIO, BufferedReader
 import json
 from pytest import raises
-from watson.http.messages import Response, Request
-from watson.http.cookies import CookieDict
+from watson.http.messages import Response, Request, MessageMixin
 from watson.http import sessions
 from tests.watson.http.support import sample_environ, start_response
+
+
+class TestMixin(object):
+    def test_version(self):
+        message = MessageMixin()
+        message.version = '1.2'
+        assert message.version == '1.2'
 
 
 class TestRequest(object):
@@ -26,6 +32,10 @@ class TestRequest(object):
         request = Request.from_environ(environ)
         assert len(request.get['arr[]']) == 2
         assert request.get['blah'] == 'something'
+
+    def test_empty_get_vars(self):
+        request = Request.from_environ({})
+        assert not request.get
 
     def test_headers(self):
         environ = sample_environ()
@@ -66,6 +76,8 @@ class TestRequest(object):
         environ = sample_environ(HTTPS='HTTPS')
         request = Request.from_environ(environ)
         assert request.is_secure()
+        request = Request.from_environ({'PATH_INFO': '/', 'wsgi.url_scheme': 'https', 'HTTP_HOST': '127.0.0.1'})
+        assert request.is_secure()
 
     def test_no_post(self):
         environ = sample_environ()
@@ -79,7 +91,7 @@ class TestRequest(object):
         request = Request.from_environ(environ)
         assert request.post['test'] == 'test'
 
-    def atest_create_put_from_environ(self):
+    def test_create_put_from_environ(self):
         data = 'HTTP_REQUEST_METHOD=PUT'
         environ = sample_environ(REQUEST_METHOD='POST', CONTENT_LENGTH=len(data))
         environ['wsgi.input'] = BufferedReader(BytesIO(data.encode('utf-8')))
@@ -104,6 +116,7 @@ class TestRequest(object):
         request = Request.from_environ(environ)
         json_output = json.loads(request.body)
         assert 'test' in json_output
+        assert 'test' in request.json_body
 
     def test_session(self):
         environ = sample_environ(HTTP_COOKIE='watson.session=123456;')
@@ -120,7 +133,6 @@ class TestRequest(object):
         request.session['arbitrary'] = 'value'
         sessions.session_to_cookie(request, Response())
         cookie = request.cookies[sessions.COOKIE_KEY]
-        print(cookie)
         assert cookie['httponly']
         assert cookie['secure']
 
@@ -139,9 +151,10 @@ class TestRequest(object):
 class TestResponse(object):
 
     def test_create(self):
-        response = Response(200, body='This is the body')
+        response = Response(200, body='This is the body', version='1.2')
         assert response.body == 'This is the body'
         assert response.status_line == '200 OK'
+        assert response.version == '1.2'
 
     def test_output(self):
         response = Response(200, body='Something here')
@@ -158,6 +171,19 @@ class TestResponse(object):
     def test_encode_body(self):
         response = Response(200, body='Test')
         assert response(start_response) == [b'Test']
+
+    def test_set_headers(self):
+        response = Response(200, body='test')
+        response.headers = {'test': 'test'}
+        assert response.headers.environ['test'] == 'test'
+
+    def test_set_cookies(self):
+        response = Response(200)
+        assert not response.cookies
+
+    def test_raw_body(self):
+        response = Response(200)
+        assert isinstance(response.raw_body, bytes)
 
     def test_start(self):
         response = Response()

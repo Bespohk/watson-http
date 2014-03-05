@@ -400,7 +400,7 @@ class Response(MessageMixin):
         """Returns the cookies associated with the Response.
         """
         if not self._cookies:
-            self._cookies = CookieDict()
+            self.cookies = CookieDict()
         return self._cookies
 
     @cookies.setter
