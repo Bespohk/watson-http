@@ -95,7 +95,7 @@ class HeaderCollection(object):
         if option:
             value = self.__getitem__(field, default)
             if not value:
-                return value
+                return default
             options = value.split('; ')
             found = [opt.split('=')[1]
                      for opt in options if opt.split('=')[0] == option]

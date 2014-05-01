@@ -60,6 +60,9 @@ class TestHeaders(object):
     def test_get_header_doesnt_exist(self):
         d = HeaderCollection()
         assert not d.get('test', option='charset', default=None)
+        d = HeaderCollection({'CONTENT_TYPE': ''})
+        assert d.get('Content-Type', default='utf-8') == 'utf-8'
+        assert not d.get('Content-Type')
 
 
 class TestServerCollection(object):
