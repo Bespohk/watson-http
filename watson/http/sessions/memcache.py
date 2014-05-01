@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import collections
 from watson.http.sessions import StorageMixin
-from watson.common.contextmanagers import ignored
-with ignored(ImportError):
+from watson.common.contextmanagers import suppress
+with suppress(ImportError):
     import memcache
 
 

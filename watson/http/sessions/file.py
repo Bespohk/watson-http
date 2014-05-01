@@ -2,7 +2,7 @@
 import os
 import pickle
 from tempfile import gettempdir
-from watson.common.contextmanagers import ignored
+from watson.common.contextmanagers import suppress
 from watson.http.sessions.abc import StorageMixin
 
 
@@ -36,7 +36,7 @@ class Storage(StorageMixin):
 
     def _save(self, expires):
         with open(self.__file_path(), 'wb') as file:
-            with ignored(Exception):
+            with suppress(Exception):
                 pickle.dump(
                     (self.data,
                      expires),
@@ -46,13 +46,13 @@ class Storage(StorageMixin):
     def _load(self):
         try:
             with open(self.__file_path(), 'rb') as file:
-                with ignored(Exception):
+                with suppress(Exception):
                     return pickle.load(file)
         except:
             return ()
 
     def _destroy(self):
-        with ignored(OSError):
+        with suppress(OSError):
             os.unlink(self.__file_path())
 
     def __file_path(self):

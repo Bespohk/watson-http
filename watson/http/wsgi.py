@@ -3,7 +3,7 @@ import cgi
 import collections
 from io import BytesIO, BufferedReader
 from urllib.parse import parse_qsl
-from watson.common.contextmanagers import ignored
+from watson.common.contextmanagers import suppress
 from watson.common.datastructures import MultiDict
 
 
@@ -61,11 +61,11 @@ def get_form_vars(environ, dict_type):
     field_storage = cgi.FieldStorage(fp=environ['wsgi.input'], environ=environ,
                                      keep_blank_values=True)
     post_dict, files_dict = dict_type(), dict_type()
-    with ignored(Exception):
+    with suppress(Exception):
         post_dict._mutable = True
         files_dict._mutable = True
     post, files = _process_field_storage(field_storage, post_dict, files_dict)
-    with ignored(Exception):
+    with suppress(Exception):
         post.make_immutable()
         files.make_immutable()
     return post, files
@@ -77,7 +77,7 @@ File = collections.namedtuple(
 
 
 def _process_field_storage(fs, post, files):
-    with ignored(Exception):
+    with suppress(Exception):
         for name in fs:
             field = fs[name] if isinstance(name, str) else name
             if isinstance(field, list):

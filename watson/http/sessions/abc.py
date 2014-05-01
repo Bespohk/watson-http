@@ -3,7 +3,7 @@ import abc
 import datetime
 from hashlib import sha1
 from random import random
-from watson.common.contextmanagers import ignored
+from watson.common.contextmanagers import suppress
 from watson.common.imports import get_qualified_name
 
 
@@ -176,7 +176,7 @@ class StorageMixin(dict, metaclass=abc.ABCMeta):
     def __delitem__(self, key):
         if not self.data:
             self.load()
-        with ignored(KeyError):
+        with suppress(KeyError):
             del self.data[key]
             if self.autosave:
                 self.save()
