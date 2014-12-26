@@ -20,7 +20,7 @@ From the environ
     from watson.http import messages
 
     def application(environ, start_response):
-        request = messages.create_request_from_environ(environ)
+        request = messages.Request.from_environ(environ)
         print(request.method)
 
 .. tip::
@@ -45,14 +45,14 @@ Dealing with Sessions
 .. tip::
     You can access many things from the Request, and most work similar to a regular ``dict``. These include: headers, server, cookies, get, post, files, url and sessions.
 
-Earlier, we created a request with the `create_request_from_environ` method. By default, all requests will be created with the `watson.http.sessions.File` backend for managing sessions. This however can be changed to a different backend by adding the `session_class` argument to the `create_request_from_environ` call. `session_class` must inherit from `watson.http.sessions.abc.StorageMixin`. If the class requires any additional configuration (the `http.sessions.file.Storage` class allows you to set the directory sessions are stored in), then you can also pass a dict of options via `session_options`.
+Earlier, we created a request with the `Request.from_environ` method. By default, all requests will be created with the `watson.http.sessions.File` backend for managing sessions. This however can be changed to a different backend by adding the `session_class` argument to the `from_environ` call. `session_class` must inherit from `watson.http.sessions.abc.StorageMixin`. If the class requires any additional configuration (the `http.sessions.file.Storage` class allows you to set the directory sessions are stored in), then you can also pass a dict of options via `session_options`.
 
 .. code-block:: python
 
     from watson.http import messages
 
     def application(environ, start_response):
-        request = messages.create_request_from_environ(environ, session_class=YOUR_SESSION_CLASS, session_options={})
+        request = messages.Request.from_environ(environ, session_class=YOUR_SESSION_CLASS, session_options={})
 
 Creating a Response
 -------------------

@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
-from watson.common.imports import load_definition_from_string
 from watson.http.sessions.abc import StorageMixin, COOKIE_KEY
 from watson.http.sessions.file import Storage as File
 from watson.http.sessions.memory import Storage as Memory
 from watson.http.sessions.memcache import Storage as Memcache
+from watson.http.sessions.redis import Storage as Redis
 
 
-__all__ = ['StorageMixin', 'File', 'Memory', 'Memcache', 'session_to_cookie']
+__all__ = ('StorageMixin',
+           'File',
+           'Memory',
+           'Memcache',
+           'Redis',
+           'session_to_cookie')
 
 
 def session_to_cookie(request, response):
