@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
-from urllib.parse import parse_qsl
+from io import BytesIO, BufferedReader
+from urllib.parse import parse_qsl, urlencode
 from wsgiref.util import request_uri
 from watson.common.datastructures import ImmutableMultiDict
 from watson.common.decorators import cached_property
@@ -217,12 +218,44 @@ class Request(MessageMixin):
     # Initializers
 
     @classmethod
-    def from_dicts(cls, get, post, server, headers, body):
-        """@todo Implement.
-        """
-        environ = {}
-        request = cls(environ)
-        return request
+    def from_dict(cls,
+                  method='GET',
+                  get=None,
+                  post=None,
+                  server=None,
+                  headers=None,
+                  body=None,
+                  encoding='utf-8',
+                  session_class=None,
+                  session_options=None):
+        get = get or {}
+        post = post or {}
+        server = server or {}
+        headers = headers or {}
+        environ = {
+            'REQUEST_METHOD': method,
+            'QUERY_STRING': urlencode(get),
+        }
+        if post:
+            body = urlencode(post)
+            environ.update({
+                'CONTENT_TYPE': 'application/x-www-form-urlencoded',
+                'REQUEST_METHOD': 'POST',
+                'wsgi.input': BufferedReader(BytesIO(body.encode(encoding)))
+            })
+        environ.update({
+            'CONTENT_LENGTH': len(body) if body else 0
+        })
+        if 'wsgi.url_scheme' not in server:
+            server['wsgi.url_scheme'] = 'http'
+        if 'SERVER_NAME' not in server:
+            server['SERVER_NAME'] = 'localhost'
+        if 'SERVER_PORT' not in server:
+            server['SERVER_PORT'] = '80'
+        environ.update(server)
+        environ.update(headers)
+        return Request.from_environ(
+            environ, session_class, session_options)
 
     @classmethod
     def from_environ(cls, environ,

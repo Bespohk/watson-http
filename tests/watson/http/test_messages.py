@@ -141,6 +141,13 @@ class TestRequest(object):
             mixin = sessions.StorageMixin()
             mixin.save()
 
+    def test_from_dicts(self):
+        get = {'get1': 1, 'get2': 2}
+        post = {'post1': 1, 'post2': 2}
+        request = Request.from_dict(get=get, post=post)
+        assert request.get['get1'] == '1'
+        assert request.post['post2'] == '2'
+
     def test_session_load_iter(self):
         with raises(NotImplementedError):
             mixin = sessions.StorageMixin()
