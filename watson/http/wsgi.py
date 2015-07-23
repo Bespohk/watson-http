@@ -73,7 +73,7 @@ def get_form_vars(environ, dict_type):
 
 File = collections.namedtuple(
     'File',
-    'data filename name type type_options disposition disposition_options headers')
+    'data filename name type type_options disposition disposition_options headers raw_field')
 
 
 def _process_field_storage(fs, post, files):
@@ -93,7 +93,8 @@ def _process_field_storage(fs, post, files):
                     field.type_options,
                     field.disposition,
                     field.disposition_options,
-                    field.headers)
+                    field.headers,
+                    field)
             else:
                 post[field.name] = field.value
     return post, files
