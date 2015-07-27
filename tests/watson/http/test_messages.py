@@ -24,7 +24,7 @@ class TestRequest(object):
         assert not request.is_method('PUT', 'PATCH')
         assert repr(request) == '<watson.http.messages.Request method:GET url:http://127.0.0.1/>'
         assert 'Content-Length: 4' in str(request)
-        assert '\r\n\r\ntest' in str(request)
+        assert "\r\n\r\ntest" in str(request)
 
     def test_get_vars(self):
         environ = sample_environ(
@@ -105,6 +105,11 @@ class TestRequest(object):
         request = Request.from_environ(environ)
         request.body = 'Test'
         assert request.raw_body == b'Test'
+        assert request.body == 'Test'
+        # environ = sample_environ()
+        # environ['wsgi.input'] = b'Test'
+        # request = Request.from_environ(environ)
+        # assert request.body == b'Test'
 
     def test_json_body(self):
         json_str = '{"test": [1, 2, 3]}'

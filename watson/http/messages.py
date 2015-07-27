@@ -5,10 +5,12 @@ from urllib.parse import parse_qsl, urlencode
 from wsgiref.util import request_uri
 from watson.common.datastructures import ImmutableMultiDict
 from watson.common.decorators import cached_property
-from watson.common.imports import get_qualified_name, load_definition_from_string
+from watson.common.imports import (get_qualified_name,
+                                   load_definition_from_string)
 from watson.http import STATUS_CODES, REQUEST_METHODS
 from watson.http.cookies import CookieDict, cookies_from_environ
-from watson.http.headers import HeaderCollection, ServerCollection, fix_http_headers
+from watson.http.headers import (HeaderCollection,
+                                 ServerCollection, fix_http_headers)
 from watson.http.uri import Url
 from watson.http.wsgi import copy_wsgi_input, get_form_vars, WSGI_BODY
 from watson.http.sessions import COOKIE_KEY
@@ -76,17 +78,29 @@ class Request(MessageMixin):
 
     @property
     def body(self):
+        """Return the body of the request as a string.
+
+        If unable to decode, return empty body.
+        """
         copy_wsgi_input(self.environ)
-        return self.raw_body.decode(self.encoding)
+        body = self.raw_body
+        if isinstance(body, bytes):
+            try:
+                body = body.decode(self.encoding)
+            except:
+                body = ''
+        return body
 
     @body.setter
     def body(self, body):
         """Set the body of the Request.
 
         Args:
-            body (string): The body of the request.
+            body (string|bytes): The body of the request.
         """
-        self.environ[WSGI_BODY] = body.encode(self.encoding)
+        if not isinstance(body, bytes):
+            body = body.encode(self.encoding)
+        self.environ[WSGI_BODY] = body
 
     @property
     def json_body(self):

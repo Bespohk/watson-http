@@ -2,9 +2,7 @@
 import cgi
 import collections
 from io import BytesIO, BufferedReader
-from urllib.parse import parse_qsl
 from watson.common.contextmanagers import suppress
-from watson.common.datastructures import MultiDict
 
 
 __all__ = ['get_form_vars']
@@ -17,7 +15,6 @@ def read_binary(self):
     when CONTENT_LENGTH is specified for a body that isn't key=value pairs.
     Decoding the data into the relevant encoding resolves the issue.
     """
-    self.file = self.make_file()
     todo = self.length
     if todo >= 0:
         while todo > 0:
@@ -29,7 +26,11 @@ def read_binary(self):
             if not data:
                 self.done = -1
                 break
-            data = data.decode(self.encoding)  # The fix
+            if not self.file:
+                self._binary_file = isinstance(data, bytes)
+                self.file = self.make_file()
+            if not self._binary_file:
+                data = data.decode(self.encoding)  # The fix
             self.file.write(data)
             todo = todo - len(data)
 
