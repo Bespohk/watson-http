@@ -25,9 +25,9 @@ Dependencies
    :target: https://travis-ci.org/watsonpy/watson-http
 .. |Coverage Status| image:: https://coveralls.io/repos/watsonpy/watson-http/badge.png
    :target: https://coveralls.io/r/watsonpy/watson-http
-.. |Version| image:: https://pypip.in/v/watson-http/badge.png
+.. |Version| image:: http://badge.kloud51.com/pypi/v/watson-http.png
    :target: https://pypi.python.org/pypi/watson-http/
-.. |Downloads| image:: https://pypip.in/d/watson-http/badge.png
+.. |Downloads| image:: http://badge.kloud51.com/pypi/d/watson-http.png
    :target: https://pypi.python.org/pypi/watson-http/
-.. |Licence| image:: https://pypip.in/license/watson-http/badge.png
+.. |Licence| image:: http://badge.kloud51.com/pypi/license/watson-http.png
    :target: https://pypi.python.org/pypi/watson-http/
