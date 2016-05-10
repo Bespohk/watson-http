@@ -220,7 +220,7 @@ class Request(MessageMixin):
         session_class = self.environ.get('watson.session.class', None)
         if session_class and not self._session:
             storage = load_definition_from_string(session_class)
-            options = self.environ['watson.session.options']
+            options = self.environ['watson.session.options'].copy()
             http_cookie = self.environ.get('HTTP_COOKIE', None)
             if (http_cookie and '{0}='.format(COOKIE_KEY) in http_cookie):
                 session_cookie = self.cookies[COOKIE_KEY]
