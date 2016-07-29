@@ -59,9 +59,13 @@ def get_form_vars(environ, dict_type):
     """
     if environ['REQUEST_METHOD'] == 'PUT' and not environ.get('CONTENT_TYPE'):
         environ['CONTENT_TYPE'] = 'application/x-www-form-urlencoded'
-    field_storage = cgi.FieldStorage(fp=environ['wsgi.input'], environ=environ,
-                                     keep_blank_values=True)
     post_dict, files_dict = dict_type(), dict_type()
+    try:
+        field_storage = cgi.FieldStorage(fp=environ['wsgi.input'],
+                                         environ=environ,
+                                         keep_blank_values=True)
+    except AttributeError:
+        field_storage = []
     with suppress(Exception):
         post_dict._mutable = True
         files_dict._mutable = True
