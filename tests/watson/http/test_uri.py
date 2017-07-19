@@ -68,3 +68,7 @@ class TestUrl(object):
     def test_params(self):
         url = Url('http://www.google.com/search;test=blah')
         assert url.params == 'test=blah'
+
+    def test_no_available_subdomain(self):
+        url = Url('http:///')
+        assert url.subdomain == None

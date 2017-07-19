@@ -26,7 +26,10 @@ class Url(object):
         With thanks: http://stackoverflow.com/questions/1189128/regex-to-extract-subdomain-from-url
         """
         regex = r'(?:http[s]*\:\/\/)*(.*?)\.(?=[^\/]*\..{2,5})'
-        matches = re.match(regex, self.hostname)
+        hostname = self.hostname
+        if not hostname:
+            return None
+        matches = re.match(regex, hostname)
         return matches.group(1) if matches else None
 
     @property
