@@ -234,6 +234,6 @@ def fix_http_headers(environ, remove=False):
     """
     for header in MISSED_HEADERS:
         if header in environ:
-            environ['HTTP_'+header] = environ[header]
+            environ['HTTP_' + header] = environ[header]
             if remove:
                 del environ[header]

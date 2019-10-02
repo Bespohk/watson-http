@@ -129,8 +129,7 @@ class StorageMixin(dict, metaclass=abc.ABCMeta):
             ) + datetime.timedelta(
                 seconds=timeout)
             self._save(expires)
-        except:
-            raise
+        except Exception:
             raise NotImplementedError(
                 'Unable to save the contents of the session')
 

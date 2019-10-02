@@ -21,7 +21,7 @@ class Storage(StorageMixin):
         if not self.client:
             try:
                 self.client = memcache.Client(self.config['servers'])
-            except:
+            except Exception:
                 raise ImportError('You must have python3-memcached installed.')
 
     def close(self):

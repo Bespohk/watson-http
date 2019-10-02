@@ -87,7 +87,7 @@ class Request(MessageMixin):
         if isinstance(body, bytes):
             try:
                 body = body.decode(self.encoding)
-            except:
+            except UnicodeDecodeError:
                 body = ''
         return body
 

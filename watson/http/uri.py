@@ -44,7 +44,7 @@ class Url(object):
         try:
             split_path = self.path.strip('/').split('/')
             return split_path[index]
-        except:
+        except IndexError:
             return None
 
     @property

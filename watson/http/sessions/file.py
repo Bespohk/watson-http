@@ -48,7 +48,7 @@ class Storage(StorageMixin):
             with open(self.__file_path(), 'rb') as file:
                 with suppress(Exception):
                     return pickle.load(file)
-        except:
+        except OSError:
             return ()
 
     def _destroy(self):

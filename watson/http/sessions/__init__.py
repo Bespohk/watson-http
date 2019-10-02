@@ -27,8 +27,8 @@ def session_to_cookie(request, response):
         return
     session_cookie = request.cookies[COOKIE_KEY]
     if ((not session_cookie
-         or (session_cookie and request.session.id != session_cookie.value))
-            and len(request.session) > 0):
+         or (session_cookie and request.session.id != session_cookie.value))  # noqa
+            and len(request.session) > 0):  # noqa
         if request.is_secure():
             request.session.cookie_params['secure'] = True
         request.cookies.add(
